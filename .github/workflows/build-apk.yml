@@ -1,0 +1,58 @@
+name: Build KuliahKu APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'KuliahKu_APK_Project_LAYAR_UTAMA_NOTIFIKASI.zip'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract project ZIP
+        run: |
+          mkdir -p project
+          unzip -o "KuliahKu_APK_Project_LAYAR_UTAMA_NOTIFIKASI.zip" -d project
+
+      - name: Find Android project
+        run: |
+          echo "Isi project:"
+          find project -maxdepth 4 -type f | sort | head -200
+
+          if find project -name "gradlew" -type f | grep -q .; then
+            echo "Android Gradle project ditemukan."
+          else
+            echo "ERROR: File gradlew tidak ditemukan."
+            echo "ZIP belum berisi project Android yang dapat dibuild."
+            exit 1
+          fi
+
+      - name: Make Gradle executable
+        run: |
+          chmod +x "$(find project -name gradlew -type f | head -1)"
+
+      - name: Build APK
+        working-directory: project
+        run: |
+          GRADLEW=$(find . -name gradlew -type f | head -1)
+          DIR=$(dirname "$GRADLEW")
+          cd "$DIR"
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Find APK
+        run: |
+          echo "APK yang dihasilkan:"
+          find project -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: KuliahKu-APK
+          path: project/**/*.apk
+          if-no-files-found: error
