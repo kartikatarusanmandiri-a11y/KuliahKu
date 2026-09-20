@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -28,36 +29,118 @@ jobs:
 
       - name: Extract project ZIP
         run: |
+          rm -rf project
           mkdir -p project
           unzip -o "KuliahKu_APK_Project_LAYAR_UTAMA_NOTIFIKASI.zip" -d project
 
       - name: Check Android project
         run: |
-          echo "Isi project:"
-          find project -maxdepth 4 -type f | sort | head -200
+          echo "======================================"
+          echo "ISI PROJECT ANDROID"
+          echo "======================================"
 
-          if [ -f "project/settings.gradle" ] && [ -f "project/build.gradle" ]; then
-            echo "Project Android ditemukan."
+          find project -maxdepth 5 -type f | sort | head -300
+
+          echo ""
+          echo "======================================"
+          echo "CEK FILE GRADLE"
+          echo "======================================"
+
+          if [ -f "project/settings.gradle" ]; then
+            echo "settings.gradle ditemukan."
           else
-            echo "ERROR: File project Android tidak lengkap."
+            echo "ERROR: settings.gradle tidak ditemukan."
             exit 1
           fi
+
+          if [ -f "project/build.gradle" ]; then
+            echo "build.gradle ditemukan."
+          else
+            echo "ERROR: build.gradle tidak ditemukan."
+            exit 1
+          fi
+
+          if [ -f "project/app/build.gradle" ]; then
+            echo "app/build.gradle ditemukan."
+          else
+            echo "ERROR: app/build.gradle tidak ditemukan."
+            exit 1
+          fi
+
+      - name: Fix Kotlin duplicate stdlib
+        working-directory: project
+        run: |
+          echo "======================================"
+          echo "MEMPERBAIKI KONFLIK KOTLIN STDLIB"
+          echo "======================================"
+
+          cat >> build.gradle <<'EOF'
+
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+                  }
+              }
+          }
+          EOF
+
+          echo "Perbaikan Kotlin selesai."
 
       - name: Create Gradle Wrapper
         working-directory: project
         run: |
+          echo "======================================"
+          echo "MEMBUAT GRADLE WRAPPER"
+          echo "======================================"
+
           gradle wrapper --gradle-version 8.7
+
           chmod +x gradlew
+
+          echo "Gradle Wrapper berhasil dibuat."
+
+      - name: Show Gradle Version
+        working-directory: project
+        run: |
+          ./gradlew --version
+
+      - name: Clean Project
+        working-directory: project
+        run: |
+          ./gradlew clean --stacktrace
 
       - name: Build APK
         working-directory: project
         run: |
+          echo "======================================"
+          echo "MEMULAI BUILD APK"
+          echo "======================================"
+
           ./gradlew assembleDebug --stacktrace
 
       - name: Find APK
         run: |
-          echo "APK yang dihasilkan:"
+          echo "======================================"
+          echo "MENCARI APK"
+          echo "======================================"
+
           find project -type f -name "*.apk" -print
+
+      - name: Check APK
+        run: |
+          APK_COUNT=$(find project -type f -name "*.apk" | wc -l)
+
+          echo "Jumlah APK ditemukan: $APK_COUNT"
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: APK tidak berhasil dibuat."
+            exit 1
+          fi
+
+          echo "APK berhasil dibuat."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
