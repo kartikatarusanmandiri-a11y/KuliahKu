@@ -15,34 +15,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Extract project ZIP
         run: |
           mkdir -p project
           unzip -o "KuliahKu_APK_Project_LAYAR_UTAMA_NOTIFIKASI.zip" -d project
 
-      - name: Find Android project
+      - name: Check Android project
         run: |
           echo "Isi project:"
           find project -maxdepth 4 -type f | sort | head -200
 
-          if find project -name "gradlew" -type f | grep -q .; then
-            echo "Android Gradle project ditemukan."
+          if [ -f "project/settings.gradle" ] && [ -f "project/build.gradle" ]; then
+            echo "Project Android ditemukan."
           else
-            echo "ERROR: File gradlew tidak ditemukan."
-            echo "ZIP belum berisi project Android yang dapat dibuild."
+            echo "ERROR: File project Android tidak lengkap."
             exit 1
           fi
 
-      - name: Make Gradle executable
+      - name: Create Gradle Wrapper
+        working-directory: project
         run: |
-          chmod +x "$(find project -name gradlew -type f | head -1)"
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
 
       - name: Build APK
         working-directory: project
         run: |
-          GRADLEW=$(find . -name gradlew -type f | head -1)
-          DIR=$(dirname "$GRADLEW")
-          cd "$DIR"
           ./gradlew assembleDebug --stacktrace
 
       - name: Find APK
